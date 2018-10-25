@@ -1,3 +1,5 @@
+import logging
+
 from django.db import IntegrityError
 from django.db.models import Sum
 from django.core.exceptions import ObjectDoesNotExist
@@ -11,6 +13,8 @@ from rest_framework import status
 from .serializers import PublisherShopsInfoSerializer, BooksSoldSerializer
 from books.models import Publisher, Shop
 
+logger = logging.getLogger('api')
+
 
 class PublisherShopsView(GenericAPIView):
     """
@@ -20,6 +24,7 @@ class PublisherShopsView(GenericAPIView):
     queryset = Publisher.objects.all()
 
     def get(self, request, *args, **kwargs):
+        logger.debug('API (PublisherShopsView), Publisher id: %s' % self.kwargs['pk'])
         publisher = self.get_object()
 
         # List of shop ids used in further annotating and sorting.
@@ -30,6 +35,7 @@ class PublisherShopsView(GenericAPIView):
             'books_sold_count')
 
         serializer = PublisherShopsInfoSerializer(shops, many=True, context={'publisher': publisher})
+        logger.debug('API (PublisherShopsView) - Status: 200')
         return Response({'shops': serializer.data})
 
 
@@ -40,6 +46,7 @@ class ShopBookSoldView(APIView):
     """
 
     def post(self, request, *args, **kwargs):
+        logger.debug('API (ShopBookSoldView), Request data: `%s`' % dict(request.data))
         try:
             shop = Shop.objects.get(id=self.kwargs['pk'])
         except ObjectDoesNotExist:
@@ -63,9 +70,10 @@ class ShopBookSoldView(APIView):
                     result = {'non_field_errors': ['Wrong sold copies number/insufficient books in stock.']}
                     http_status = status.HTTP_400_BAD_REQUEST
                 else:
-                    result = None
+                    result = 'OK'
                     http_status = status.HTTP_200_OK
         else:
             result = serializer.errors
             http_status = status.HTTP_400_BAD_REQUEST
+        logger.debug('API (ShopBookSoldView), Status: %d. Response data: `%s``' % (http_status, result))
         return Response(result, status=http_status)
